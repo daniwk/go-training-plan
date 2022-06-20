@@ -22,3 +22,6 @@ go.work
 
 # Env
 *.env
+
+# psql docker-compose
+psql/
