@@ -1,0 +1,14 @@
+volumes:
+  pgdata: {}
+
+services:
+  postgres:
+    image: postgres
+    container_name: training-plan-database
+    restart: on-failure
+    ports:
+    - "5432:5432"
+    environment:
+      POSTGRES_USER: kong ##admin user password
+      POSTGRES_DB: kong
+      POSTGRES_PASSWORD: kong2004
