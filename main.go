@@ -1,8 +1,8 @@
 package main
 
 import (
+	"github.com/daniwk/training-plan/pkg/api/v1/planned_activities"
 	"github.com/daniwk/training-plan/pkg/common/db"
-	"github.com/daniwk/training-plan/pkg/planned_activities"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )

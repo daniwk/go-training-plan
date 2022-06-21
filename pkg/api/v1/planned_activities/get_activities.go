@@ -3,7 +3,7 @@ package planned_activities
 import (
 	"net/http"
 
-	"github.com/daniwk/training-plan/pkg/common/models"
+	"github.com/daniwk/training-plan/pkg/models"
 	"github.com/gin-gonic/gin"
 )
 

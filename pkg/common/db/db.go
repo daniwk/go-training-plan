@@ -3,7 +3,7 @@ package db
 import (
 	"log"
 
-	"github.com/daniwk/training-plan/pkg/common/models"
+	"github.com/daniwk/training-plan/pkg/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
