@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/daniwk/training-plan/pkg/akv"
+	"github.com/daniwk/training-plan/pkg/strava"
 	"github.com/spf13/viper"
 )
 
@@ -13,9 +12,16 @@ func main() {
 	viper.SetConfigFile("./pkg/common/envs/.env")
 	viper.ReadInConfig()
 
-	mySecretName := "SecretName"
-	mySecretvalue := viper.Get("ENV_VAR").(string)
+	params := akv.UpdateSecretParams{}
+	params.SecretName = "SecretName22"
+	params.SecretValue = viper.Get("ENV_VAR").(string)
+	params.ExpiresInSeconds = 21600 // 6 hours
 
-	secret_id := akv.UpdateSecret(mySecretName, mySecretvalue)
-	fmt.Printf("Set secret %s", secret_id)
+	// secret := akv.GetSecret(params.SecretName)
+	// fmt.Println(secret)
+	// secret_id := akv.UpdateSecret(params)
+	// fmt.Printf("Updated secret %s", secret_id)
+	// secret := strava.RefreshAccessToken()
+	// fmt.Printf("Updated secret %s", secret)
+	strava.GetStravaActivities()
 }
