@@ -10,7 +10,7 @@ type ActivityType string
 
 const (
 	RUN      ActivityType = "RUN"
-	BICYCLE  ActivityType = "BICYCLE"
+	RIDE     ActivityType = "RIDE"
 	STRENGTH ActivityType = "STRENGTH"
 )
 
@@ -35,4 +35,5 @@ type PlannedActivity struct {
 	Month              int          `json:"month"`
 	Year               int          `json:"year"`
 	Date               time.Time    `json:"date"`
+	Arvo               bool         `gorm:"default:false" json:"arvo"`
 }
