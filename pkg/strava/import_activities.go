@@ -90,7 +90,7 @@ func GetStravaActivities() {
 	}
 
 	// Get Strava Activities
-	strava_url := "https://www.strava.com/api/v3/athlete/activities?per_page=10"
+	strava_url := "https://www.strava.com/api/v3/athlete/activities?per_page=10&page=2"
 	client := &http.Client{}
 	req, _ := http.NewRequest(http.MethodGet, strava_url, nil)
 	access_token := fmt.Sprintf("Bearer %s", AKVSecret.SecretValue)
@@ -107,12 +107,13 @@ func GetStravaActivities() {
 		log.Fatalf("HTTP POST request failed with error: %v", err)
 	}
 
-	response_body := []models.StravaActivity{}
-	if err := json.Unmarshal(body, &response_body); err != nil {
+	strava_activity_records := []models.StravaActivity{}
+	if err := json.Unmarshal(body, &strava_activity_records); err != nil {
 		log.Fatalf("Cannot unmarshal json: %v", err)
 	}
-	if result := db.Create(&response_body); result.Error != nil {
+	if result := db.Create(&strava_activity_records); result.Error != nil {
 		log.Fatalf("Couldnt insert data to db: %v", result.Error)
 	}
 
+	fmt.Println("Following slice was uploaded to DB: %s", strava_activity_records)
 }
