@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/daniwk/training-plan/pkg/akv"
 	"github.com/daniwk/training-plan/pkg/models"
 	"github.com/spf13/viper"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RefreshAccessTokenResponseBody struct {
@@ -68,6 +70,58 @@ func RefreshAccessToken() string {
 	return response_body.AccessToken
 }
 
+// List a Strava athletes activities. Returns []StravaActivity
+func ListStravaAthleteActivites(StravaAccessToken string, ResultsPerPage, Page int) []models.StravaActivity {
+	strava_url := fmt.Sprintf("https://www.strava.com/api/v3/athlete/activities?per_page=%d&page=%d", ResultsPerPage, Page)
+	client := &http.Client{}
+	req, _ := http.NewRequest(http.MethodGet, strava_url, nil)
+	access_token := fmt.Sprintf("Bearer %s", StravaAccessToken)
+	req.Header.Add("Authorization", access_token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("HTTP GET request failed with error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("HTTP POST request failed with error: %v", err)
+	}
+	strava_activity_records := []models.StravaActivity{}
+	if err := json.Unmarshal(body, &strava_activity_records); err != nil {
+		log.Fatalf("Cannot unmarshal json: %v", err)
+	}
+
+	return strava_activity_records
+}
+
+// Get a Strava Activity by its ID
+func GetStravaActivityByID(StravaAccessToken string, StravaActivityID int) models.StravaActivity {
+	strava_url := fmt.Sprintf("https://www.strava.com/api/v3/activities/%d", StravaActivityID)
+	client := &http.Client{}
+	req, _ := http.NewRequest(http.MethodGet, strava_url, nil)
+	access_token := fmt.Sprintf("Bearer %s", StravaAccessToken)
+	req.Header.Add("Authorization", access_token)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("HTTP GET request failed with error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("HTTP POST request failed with error: %v", err)
+	}
+	strava_activity_record := models.StravaActivity{}
+	if err := json.Unmarshal(body, &strava_activity_record); err != nil {
+		log.Fatalf("Cannot unmarshal json: %v", err)
+	}
+
+	return strava_activity_record
+}
+
 // GetStravaActivities retrieves last 10 Strava activites and uploads them to DB
 func GetStravaActivities() {
 
@@ -90,30 +144,57 @@ func GetStravaActivities() {
 	}
 
 	// Get Strava Activities
-	strava_url := "https://www.strava.com/api/v3/athlete/activities?per_page=10&page=2"
-	client := &http.Client{}
-	req, _ := http.NewRequest(http.MethodGet, strava_url, nil)
-	access_token := fmt.Sprintf("Bearer %s", AKVSecret.SecretValue)
-	req.Header.Add("Authorization", access_token)
+	ResultsPerPage := 5
+	Page := 1
+	strava_activity_records := ListStravaAthleteActivites(AKVSecret.SecretValue, ResultsPerPage, Page)
 
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatalf("HTTP GET request failed with error: %v", err)
-	}
-	defer resp.Body.Close()
+	// Get latest PlannedActivites
+	for _, strava_activity := range strava_activity_records {
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatalf("HTTP POST request failed with error: %v", err)
-	}
+		// Get Activity to get extra data 😍
+		strava_activity := GetStravaActivityByID(AKVSecret.SecretValue, strava_activity.StravaID)
 
-	strava_activity_records := []models.StravaActivity{}
-	if err := json.Unmarshal(body, &strava_activity_records); err != nil {
-		log.Fatalf("Cannot unmarshal json: %v", err)
-	}
-	if result := db.Create(&strava_activity_records); result.Error != nil {
-		log.Fatalf("Couldnt insert data to db: %v", result.Error)
-	}
+		// Upsert activity
+		fmt.Printf("Working with Strava Activity: %v\n", strava_activity)
+		existing_strava := models.StravaActivity{}
+		if result := db.Where("strava_id = ?", strava_activity.StravaID).Find(&existing_strava); result != nil {
+			strava_activity.ID = existing_strava.ID
+		}
 
-	fmt.Println("Following slice was uploaded to DB: %s", strava_activity_records)
+		// Match Strava activity with planned activity by finding correct activity based on type, date and "Arvo"
+		planned_activities := []models.PlannedActivity{}
+		activity_type := strava_activity.SportType
+		if result := db.Where("day = ? AND month = ? AND year = ? AND activity_type = ?", strava_activity.StartDate.Day(), strava_activity.StartDate.Month(), strava_activity.StartDate.Year(), activity_type).Find(&planned_activities); result.Error != nil {
+			log.Fatalf("Cannot unmarshal json: %v", result.Error)
+		}
+		fmt.Println("Following planned activities where found: \n", planned_activities)
+
+		if len(planned_activities) > 0 {
+
+			// Find planned activity and match
+			for _, planned_activity := range planned_activities {
+
+				planned_activity_time := time.Date(planned_activity.Year, time.Month(planned_activity.Month), planned_activity.Day, 12, 0, 0, 0, time.Local)
+				if planned_activity.Arvo && strava_activity.StartDate.After(planned_activity_time) || !planned_activity.Arvo && strava_activity.StartDate.Before(planned_activity_time) {
+
+					fmt.Println("Following planned activity where matched: \n", planned_activity)
+					planned_activity.StravaActivity = &strava_activity
+					fmt.Println("Updating planned activity to: \n", planned_activity)
+
+					if result := db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&planned_activity); result.Error != nil {
+						log.Fatalf("Couldnt insert planned_activity to db: %v", result.Error)
+						continue
+					}
+				}
+			}
+
+		} else {
+
+			// Upload strava activity without binding
+			fmt.Print("No planned activities found, adding strava activity without binding: \n")
+			db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&strava_activity)
+			fmt.Println("Strava activity created in DB: \n", strava_activity)
+		}
+
+	}
 }

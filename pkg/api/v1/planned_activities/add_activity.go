@@ -2,20 +2,24 @@ package planned_activities
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/daniwk/training-plan/pkg/models"
 	"github.com/gin-gonic/gin"
 )
 
 type AddPlannedActivityRequestBody struct {
-	ActivityType string `json:"activity_type"`
-	Trail        bool   `json:"trail,string"`
-	Day          int    `json:"day,string"`
-	Month        int    `json:"month,string"`
-	Year         int    `json:"year,string"`
-	Distance     int    `json:"distance,string"`
-	Duration     int    `json:"duration,string"`
-	Intensity    int    `json:"intensity,string"`
+	ActivityType       string             `json:"activity_type"`
+	Trail              bool               `json:"trail"`
+	Day                int                `json:"day"`
+	Month              int                `json:"month"`
+	Year               int                `json:"year"`
+	Distance           int                `json:"distance"`
+	Duration           int                `json:"duration"`
+	Intensity          int                `json:"intensity"`
+	Arvo               bool               `json:"arvo"`
+	WorkoutType        models.WorkoutType `json:"workout_type"`
+	WorkoutDescription string             `json:"workout_description"`
 }
 
 func (h handler) AddPlannedActivity(c *gin.Context) {
@@ -36,6 +40,10 @@ func (h handler) AddPlannedActivity(c *gin.Context) {
 	planned_activity.Distance = body.Distance
 	planned_activity.Duration = body.Duration
 	planned_activity.Intensity = body.Intensity
+	planned_activity.Date = time.Date(body.Year, time.Month(body.Month), body.Day, 9, 0, 0, 0, time.Local)
+	planned_activity.Arvo = body.Arvo
+	planned_activity.WorkoutDescription = body.WorkoutDescription
+	planned_activity.WorkoutType = body.WorkoutType
 
 	if result := h.DB.Create(&planned_activity); result.Error != nil {
 		c.AbortWithError(http.StatusBadRequest, result.Error)

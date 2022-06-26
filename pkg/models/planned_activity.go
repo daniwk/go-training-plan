@@ -9,9 +9,9 @@ import (
 type ActivityType string
 
 const (
-	RUN      ActivityType = "RUN"
-	RIDE     ActivityType = "RIDE"
-	STRENGTH ActivityType = "STRENGTH"
+	Run            ActivityType = "Run"
+	Ride           ActivityType = "Ride"
+	WeightTraining ActivityType = "WeightTraining"
 )
 
 type WorkoutType string
@@ -36,4 +36,5 @@ type PlannedActivity struct {
 	Year               int          `json:"year"`
 	Date               time.Time    `json:"date"`
 	Arvo               bool         `gorm:"default:false" json:"arvo"`
+	StravaActivity     *StravaActivity
 }
