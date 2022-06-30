@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/daniwk/training-plan/pkg/api/v1/feelings"
 	"github.com/daniwk/training-plan/pkg/api/v1/planned_activities"
 	"github.com/daniwk/training-plan/pkg/api/v1/statistics"
 	strava_activites "github.com/daniwk/training-plan/pkg/api/v1/strava_activities"
@@ -22,6 +23,7 @@ func main() {
 	planned_activities.RegisterRoutes(r, h)
 	strava_activites.RegisterRoutes(r, h)
 	statistics.RegisterRoutes(r, h)
+	feelings.RegisterRoutes(r, h)
 
 	r.Run(port)
 }

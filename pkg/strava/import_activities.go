@@ -134,6 +134,7 @@ func GetStravaActivities() {
 		log.Fatalf("HTTP GET request failed with error: %v", err)
 	}
 	db.AutoMigrate(&models.StravaActivity{})
+	db.AutoMigrate(&models.Lap{})
 
 	// Fetch StravaAccessToken from AKV
 	secret_name := viper.Get("STRAVA_ACCESS_TOKEN_AKV_NAME").(string)
@@ -144,7 +145,7 @@ func GetStravaActivities() {
 	}
 
 	// Get Strava Activities
-	ResultsPerPage := 5
+	ResultsPerPage := 20
 	Page := 1
 	strava_activity_records := ListStravaAthleteActivites(AKVSecret.SecretValue, ResultsPerPage, Page)
 
@@ -159,6 +160,16 @@ func GetStravaActivities() {
 		existing_strava := models.StravaActivity{}
 		if result := db.Where("strava_id = ?", strava_activity.StravaID).Find(&existing_strava); result != nil {
 			strava_activity.ID = existing_strava.ID
+		}
+
+		// Set foreign to Laps and see if lap already exist
+		for _, lap := range strava_activity.Laps {
+			lap.StravaActivityID = strava_activity.ID
+
+			existing_lap := models.Lap{}
+			if result := db.Where("strava_activity_id = ? AND split = ?", lap.StravaActivityID, lap.Split).Find(&existing_lap); result != nil {
+				lap.ID = existing_lap.ID
+			}
 		}
 
 		// Match Strava activity with planned activity by finding correct activity based on type, date and "Arvo"
@@ -190,10 +201,30 @@ func GetStravaActivities() {
 
 		} else {
 
-			// Upload strava activity without binding
+			// Upload strava activity without binding, but create new empty planned activity
+
+			new_planned_activity := models.PlannedActivity{}
+			fmt.Printf("Strava activity type: %s\n", strava_activity.SportType)
+			new_planned_activity.ActivityType = models.ActivityType(strava_activity.SportType)
+			if strava_activity.SportType == "TrailRun" || strava_activity.SportType == "MountainBikeRide" {
+				new_planned_activity.Trail = true
+			} else {
+				new_planned_activity.Trail = false
+			}
+			new_planned_activity.Day = strava_activity.StartDate.Day()
+			new_planned_activity.Month = int(strava_activity.StartDate.Month())
+			new_planned_activity.Year = strava_activity.StartDate.Year()
+			new_planned_activity.Date = strava_activity.StartDate
+			if strava_activity.StartDate.Hour() > 12 {
+				new_planned_activity.Arvo = true
+			} else {
+				new_planned_activity.Arvo = false
+			}
+			new_planned_activity.StravaActivity = &strava_activity
+
 			fmt.Print("No planned activities found, adding strava activity without binding: \n")
-			db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&strava_activity)
-			fmt.Println("Strava activity created in DB: \n", strava_activity)
+			db.Clauses(clause.OnConflict{UpdateAll: true}).Create(&new_planned_activity)
+			fmt.Println("Planned activity created in DB: \n", new_planned_activity)
 		}
 
 	}

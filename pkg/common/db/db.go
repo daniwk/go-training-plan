@@ -17,6 +17,8 @@ func Init(url string) *gorm.DB {
 
 	db.AutoMigrate(&models.PlannedActivity{})
 	db.AutoMigrate(&models.StravaActivity{})
+	db.AutoMigrate(&models.Lap{})
+	db.AutoMigrate(&models.Feeling{})
 
 	return db
 }

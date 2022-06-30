@@ -1,29 +1,17 @@
 package planned_activities
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/daniwk/training-plan/pkg/models"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm/clause"
 )
 
-type AddPlannedActivityRequestBody struct {
-	ActivityType       string             `json:"activity_type"`
-	Trail              bool               `json:"trail"`
-	Day                int                `json:"day"`
-	Month              int                `json:"month"`
-	Year               int                `json:"year"`
-	Distance           int                `json:"distance"`
-	Duration           int                `json:"duration"`
-	Intensity          int                `json:"intensity"`
-	Arvo               bool               `json:"arvo"`
-	WorkoutType        models.WorkoutType `json:"workout_type"`
-	WorkoutDescription string             `json:"workout_description"`
-}
-
 func (h handler) AddPlannedActivity(c *gin.Context) {
-	body := AddPlannedActivityRequestBody{}
+	body := models.AddPlannedActivityRequestBody{}
 
 	if err := c.BindJSON(&body); err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -40,12 +28,15 @@ func (h handler) AddPlannedActivity(c *gin.Context) {
 	planned_activity.Distance = body.Distance
 	planned_activity.Duration = body.Duration
 	planned_activity.Intensity = body.Intensity
-	planned_activity.Date = time.Date(body.Year, time.Month(body.Month), body.Day, 9, 0, 0, 0, time.Local)
+	planned_activity.Date = time.Date(body.Year, time.Month(body.Month), body.Day, 0, 0, 0, 0, time.Local)
 	planned_activity.Arvo = body.Arvo
 	planned_activity.WorkoutDescription = body.WorkoutDescription
+	planned_activity.MinutesInQuality = body.MinutesInQuality
 	planned_activity.WorkoutType = body.WorkoutType
 
-	if result := h.DB.Create(&planned_activity); result.Error != nil {
+	fmt.Printf("Upserting: %v", planned_activity)
+
+	if result := h.DB.Clauses(clause.OnConflict{UpdateAll: true}).Create(&planned_activity); result.Error != nil {
 		c.AbortWithError(http.StatusBadRequest, result.Error)
 		return
 	}

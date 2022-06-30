@@ -10,7 +10,7 @@ import (
 func (h handler) GetStravaActivites(c *gin.Context) {
 	var strava_activities []models.StravaActivity
 
-	if result := h.DB.Find(&strava_activities); result.Error != nil {
+	if result := h.DB.Model(&models.StravaActivity{}).Preload("Laps").Order("start_date desc").Find(&strava_activities); result.Error != nil {
 		c.AbortWithError(http.StatusNotFound, result.Error)
 		return
 	}
