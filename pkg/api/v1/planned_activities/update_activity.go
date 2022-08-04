@@ -2,6 +2,7 @@ package planned_activities
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/daniwk/training-plan/pkg/models"
 	"github.com/gin-gonic/gin"
@@ -24,8 +25,16 @@ func (h handler) UpdatePlannedActivity(c *gin.Context) {
 		return
 	}
 
-	planned_activity.ActivityType = models.ActivityType(body.ActivityType)
-	planned_activity.Trail = body.Trail
+	// planned_activity.WorkoutType = body.WorkoutType
+	// planned_activity.WorkoutDescription = body.WorkoutDescription
+	// planned_activity.MinutesInQuality = body.MinutesInQuality
+	// planned_activity.Distance = body.Distance
+	// planned_activity.Intensity = body.Intensity
+
+	planned_activity.Day = body.Day
+	planned_activity.Month = body.Month
+	planned_activity.Year = body.Year
+	planned_activity.Date = time.Date(body.Year, time.Month(body.Month), body.Day, 0, 0, 0, 0, time.Local)
 
 	h.DB.Save(&planned_activity)
 

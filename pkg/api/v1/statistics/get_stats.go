@@ -41,9 +41,13 @@ type Workouts struct {
 }
 
 type Intensity struct {
-	PlannedLoad       float64 `json:"planned_load"`
-	ActualLoad        float64 `json:"actual_load"`
-	StravaSufferScore float64 `json:"strava_suffer_score"`
+	PlannedLoad                           float64 `json:"planned_load"`
+	PlannedLoadIncreaseFromLastWeek       float64 `json:"planned_load_increase_vs_last_week"`
+	PlannedPercentageIncreaseFromLastWeek float64 `json:"planned_percentage_increase_vs_last_week"`
+	ActualLoad                            float64 `json:"actual_load"`
+	ActualLoadIncreaseFromLastWeek        float64 `json:"actual_load_increase_vs_last_week"`
+	ActualPercentageIncreaseFromLastWeek  float64 `json:"actual_percentage_increase_vs_last_week"`
+	StravaSufferScore                     float64 `json:"strava_suffer_score"`
 }
 
 type GenericWeeklyStatitistics struct {
@@ -142,19 +146,19 @@ type PeriodStatistics struct {
 	Error              error
 }
 
-func GetStatisticsForPeriod(h handler, start_date time.Time, end_date time.Time) PeriodStatistics {
+func GetStatisticsForPeriod(h handler, start_date time.Time, end_date time.Time, activity_type models.WorkoutType) PeriodStatistics {
 	var weekly_stats WeeklyStatitistics
 	var period_statistics PeriodStatistics
 	weekly_stats.StartDate = start_date
 	weekly_stats.EndDate = end_date
 	var planned_activities []models.PlannedActivity
 
-	if result := h.DB.Model(&models.PlannedActivity{}).Preload("StravaActivity").Preload("StravaActivity.Laps").Where("activity_type = ? AND date > ? AND date < ?", models.Run, start_date, end_date).Find(&planned_activities); result.Error != nil {
+	if result := h.DB.Model(&models.PlannedActivity{}).Preload("StravaActivity").Preload("StravaActivity.Laps").Where("activity_type = ? AND date > ? AND date < ?", activity_type, start_date, end_date).Find(&planned_activities); result.Error != nil {
 		period_statistics.Error = errors.New("NotFound")
 		return period_statistics
 	}
 
-	// Read all activities for the gived week
+	// Read all activities for the given week
 
 	for _, planned_activity := range planned_activities {
 		fmt.Printf("Planned activity %v\n", planned_activity)
@@ -221,8 +225,9 @@ func (h handler) GetWeeklyRunStatistics(c *gin.Context) {
 	start_date := time.Date(int(start_year_int), time.Month(start_month_int), start_day_int, 0, 0, 0, 0, time.Local)
 	end_date := start_date.Add(time.Hour * 24 * 7)
 
-	// Read all activities for the gived week
-	stats := GetStatisticsForPeriod(h, start_date, end_date)
+	// Read all activities for the given week
+	activity_type := models.WorkoutType(models.Run)
+	stats := GetStatisticsForPeriod(h, start_date, end_date, activity_type)
 	if stats.Error != nil {
 		if errors.Is(stats.Error, errors.New("NotFound")) {
 			c.AbortWithError(http.StatusNotFound, stats.Error)
@@ -234,11 +239,15 @@ func (h handler) GetWeeklyRunStatistics(c *gin.Context) {
 
 	// Calulcate progress vs last week and vs average last 4 weeks
 	start_date_minus_1_week := start_date.Add(time.Hour * 24 * -7)
-	last_week_stats := GetStatisticsForPeriod(h, start_date_minus_1_week, start_date)
+	last_week_stats := GetStatisticsForPeriod(h, start_date_minus_1_week, start_date, activity_type)
 
-	fmt.Printf("Last week's stats: %v\n", last_week_stats.WeeklyStatitistics)
+	// Distance
 	stats.WeeklyStatitistics.Running.Distance.PlannedDistanceIncreaseFromLastWeek = float64(stats.WeeklyStatitistics.Running.Distance.PlannedKm) - last_week_stats.WeeklyStatitistics.Running.Distance.ActualKm
-	// stats.WeeklyStatitistics.Running.Distance.PlannedPercentageIncreaseFromLastWeek = (float64(stats.WeeklyStatitistics.Running.Distance.PlannedKm) - last_week_stats.WeeklyStatitistics.Running.Distance.ActualKm) / last_week_stats.WeeklyStatitistics.Running.Distance.ActualKm
+	stats.WeeklyStatitistics.Running.Distance.PlannedPercentageIncreaseFromLastWeek = (float64(stats.WeeklyStatitistics.Running.Distance.PlannedKm) - last_week_stats.WeeklyStatitistics.Running.Distance.ActualKm) / last_week_stats.WeeklyStatitistics.Running.Distance.ActualKm
+
+	// Intensity
+	stats.WeeklyStatitistics.Running.Intensity.PlannedLoadIncreaseFromLastWeek = float64(stats.WeeklyStatitistics.Running.Intensity.PlannedLoad) - last_week_stats.WeeklyStatitistics.Running.Intensity.ActualLoad
+	stats.WeeklyStatitistics.Running.Intensity.PlannedPercentageIncreaseFromLastWeek = (float64(stats.WeeklyStatitistics.Running.Intensity.PlannedLoad) - last_week_stats.WeeklyStatitistics.Running.Intensity.ActualLoad) / last_week_stats.WeeklyStatitistics.Running.Intensity.ActualLoad
 
 	fmt.Printf("stats: %v\n", stats.WeeklyStatitistics)
 	c.JSON(http.StatusOK, &stats.WeeklyStatitistics)

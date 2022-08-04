@@ -145,7 +145,7 @@ func GetStravaActivities() {
 	}
 
 	// Get Strava Activities
-	ResultsPerPage := 20
+	ResultsPerPage := 10
 	Page := 1
 	strava_activity_records := ListStravaAthleteActivites(AKVSecret.SecretValue, ResultsPerPage, Page)
 
